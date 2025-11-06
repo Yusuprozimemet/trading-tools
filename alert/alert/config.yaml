@@ -6,8 +6,8 @@ trading:
   name2: ASML
   z_score_window: 20
 telegram:
-  token: 7815777965:AAGBLqocYRux_tRyWAq4y050cFUlMLyzp3s
-  chat_id: '7517198878'
+  token: ''
+  chat_id: ''
 strategy:
   name: z_score
   params:

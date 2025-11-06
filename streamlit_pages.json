@@ -1,0 +1,20 @@
+{
+    "alert/app.py": "Alerts",
+    "chart/charts.py": "Charts",
+    "finance/financialReport.py": "Financial Report",
+    "portofolio/portofolio.py": "Portfolio",
+    "strategies/BBRSI_Bollinger_RSI/bbrsi_backtest.py": "Bollinger–RSI Backtest",
+    "strategies/BBRSI_Bollinger_RSI/bbrsi.py": "Bollinger–RSI Optimizer",
+    "strategies/BBRSI_Bollinger_RSI/BBRSIT.py": "Bollinger–RSI Trialing",
+    "strategies/Correlation_Indicator_Utilities/correlation.py": "Correlation Utilities",
+    "strategies/Market_Making_Execution/marketMaking.py": "Market Making",
+    "strategies/Market_Making_Execution/BRATR.py": "Bollinger–RSI Adaptive Trailing Reversion",
+    "strategies/Momentum_MultiFactor/momentumTrading.py": "Momentum Trading",
+    "strategies/Momentum_MultiFactor/MIMS.py": "Multi-Factor Intrinsic Momentum Strategy",
+    "strategies/Optimization_Portfolio_Simulation/monteCarloSimulation.py": "Monte Carlo Simulation",
+    "strategies/Optimization_Portfolio_Simulation/multiStockBBRSI.py": "Multi-stock BBRSI",
+    "strategies/Pairs_MeanReversion/pair_trading_analysis.py": "Pair Trading Analysis",
+    "strategies/Pairs_MeanReversion/pairs_trading.py": "Pairs Trading",
+    "strategies/Pairs_MeanReversion/PMR.py": "Pairs Mean Reversion",
+    "strategies/Pairs_MeanReversion/spread_analyzer.py": "Spread Analyzer"
+}
