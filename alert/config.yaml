@@ -1,0 +1,31 @@
+trading:
+  stock1: "AGN.AS"
+  stock2: "ASML.AS"
+  ratio: 0.0072
+  name1: "AGN"
+  name2: "ASML"
+  z_score_window: 20
+
+telegram:
+  token: "7815777965:AAGBLqocYRux_tRyWAq4y050cFUlMLyzp3s"
+  chat_id: "7517198878" # your chat id (string or int)
+
+strategy:
+  name: "z_score"
+  params:
+    z_threshold: 2.0
+    z_exit: 0.5
+
+alerts:
+  cooldown_minutes:
+    "15-Minutes": 30
+    "Hourly": 60
+    "Daily": 240
+  min_signal_strength: 0.5
+  send_test_message: True
+
+schedule:
+  check_15min: True
+  check_hourly: True
+  check_daily: True
+  daily_check_hour: 17

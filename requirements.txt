@@ -1,0 +1,15 @@
+streamlit
+yfinance
+pandas
+numpy
+plotly
+deap
+tqdm
+matplotlib
+PyYAML
+python-telegram-bot
+psutil
+schedule
+feedparser
+python-dateutil
+pytz
