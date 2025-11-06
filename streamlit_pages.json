@@ -5,7 +5,7 @@
     "portofolio/portofolio.py": "Portfolio",
     "strategies/BBRSI_Bollinger_RSI/bbrsi_backtest.py": "Bollinger–RSI Backtest",
     "strategies/BBRSI_Bollinger_RSI/bbrsi.py": "Bollinger–RSI Optimizer",
-    "strategies/BBRSI_Bollinger_RSI/BBRSIT.py": "Bollinger–RSI Trialing",
+    "strategies/BBRSI_Bollinger_RSI/BBRSIT.py": "Bollinger–RSI Trailing",
     "strategies/Correlation_Indicator_Utilities/correlation.py": "Correlation Utilities",
     "strategies/Market_Making_Execution/marketMaking.py": "Market Making",
     "strategies/Market_Making_Execution/BRATR.py": "Bollinger–RSI Adaptive Trailing Reversion",
@@ -16,5 +16,7 @@
     "strategies/Pairs_MeanReversion/pair_trading_analysis.py": "Pair Trading Analysis",
     "strategies/Pairs_MeanReversion/pairs_trading.py": "Pairs Trading",
     "strategies/Pairs_MeanReversion/PMR.py": "Pairs Mean Reversion",
-    "strategies/Pairs_MeanReversion/spread_analyzer.py": "Spread Analyzer"
+    "strategies/Pairs_MeanReversion/spread_analyzer.py": "Spread Analyzer",
+    "trading/alpaca_data.py": "Alpaca Data Dashboard",
+    "trading/main.py": "Trading Dashboard"
 }

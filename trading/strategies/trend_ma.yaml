@@ -1,0 +1,4 @@
+type: trend_following
+params:
+  short_ma: 20
+  long_ma: 200

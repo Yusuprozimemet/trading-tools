@@ -72,9 +72,3 @@ If you prefer, open an Issue first to discuss larger changes before submitting a
 
 Apache-2.0 License
 
-```
-
-This is short, **Streamlit-first**, and guides users immediately to run the app and explore your strategies.  
-
-I can also **enhance it further with a demo screenshot section and sample sidebar defaults** so it looks like a polished dashboard README. Do you want me to do that next?
-```

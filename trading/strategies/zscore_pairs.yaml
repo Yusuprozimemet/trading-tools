@@ -1,0 +1,8 @@
+type: pair_trading
+params:
+  z_enter: 2.0
+  z_exit: 0.5
+  hedge_ratio_method: engle-granger
+pairs:
+  - ["AAPL", "MSFT"]
+  - ["NVDA", "AMD"]

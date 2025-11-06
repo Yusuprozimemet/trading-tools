@@ -1,0 +1,65 @@
+trading:
+  mode: paper # live / paper
+  base_currency: USD
+
+  stocks:
+    - AAPL
+    - NVDA
+    - TSLA
+    - MSFT
+
+  crypto:
+    - BTC-USD
+    - ETH-USD
+    - SOL-USD
+
+brokers:
+  alpaca:
+    endpoint: "https://paper-api.alpaca.markets"
+    key: "YOUR_ALPACA_API_KEY"
+    secret: "YOUR_ALPACA_SECRET_KEY"
+
+  binance:
+    api_key: "YOUR_BINANCE_API_KEY"
+    api_secret: "YOUR_BINANCE_SECRET"
+
+data:
+  provider: yfinance # yfinance / alpaca / binance / polygon
+  interval_default: "1h"
+  history_days: 120
+
+strategies:
+  active:
+    - zscore_pairs
+    - bbrsi
+    # - trend_ma     # enable/disable here
+
+alerts:
+  provider: telegram # telegram / email / slack
+  min_signal_strength: 0.6
+  send_startup_message: true
+  cooldown:
+    15m: 30
+    1h: 60
+    1d: 240
+
+telegram:
+  token: "YOUR_TELEGRAM_BOT_TOKEN"
+  chat_id: "YOUR_CHAT_ID"
+
+schedule:
+  check_15m: true
+  check_1h: true
+  check_daily: true
+  daily_run_time: "17:00" # 24h format
+
+risk_management:
+  position_size_pct: 0.02
+  stop_loss_pct: 0.03
+  take_profit_pct: 0.06
+
+logging:
+  level: INFO
+  save_signals: true
+  save_trades: true
+  file_path: "logs/trading.log"
