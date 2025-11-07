@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import List, Tuple, Dict, Any
 
 import streamlit as st
+import os
 
 
 def find_scripts(base_dir: str) -> List[Tuple[str, str]]:
@@ -208,6 +209,34 @@ def main() -> None:
 
     # Do not show the script filesystem path in the sidebar (user requested)
 
+    # Detect hosted environments (Render, Cloud Run, Heroku, etc.). If detected,
+    # force in-process serving because subprocess mode cannot open browser tabs
+    # or expose additional ports on hosted platforms.
+    hosted_env_keys = (
+        "RENDER",
+        "RENDER_SERVICE_ID",
+        "RENDER_EXTERNAL_URL",
+        "K_SERVICE",
+        "WEBSITE_HOSTNAME",
+        "HEROKU_APP_NAME",
+    )
+    is_hosted = any(os.environ.get(k) for k in hosted_env_keys) or bool(os.environ.get("PORT") and os.environ.get("CI") is None and os.environ.get("PYCHARM_HOSTED") is None and os.environ.get("TERM_PROGRAM") is None)
+
+    # Serve mode toggle. If hosted, force in-process and show an explanatory banner.
+    if is_hosted:
+        st.sidebar.warning("Hosted environment detected — running pages in-process. Subprocess mode is disabled on Render and similar hosts.")
+        serve_mode = "In-process (same page)"
+    else:
+        serve_mode = st.sidebar.radio(
+            "Serve mode",
+            ["In-process (same page)", "Subprocess (opens new tab - local only)"],
+            index=0,
+            help="In-process runs the selected script inside this Streamlit session (required on Render).",
+        )
+
+    # Option to clear session state before running a new page to reduce cross-page conflicts
+    clear_before_run = st.sidebar.checkbox("Clear session state before run", value=False, help="Remove stored Streamlit session state keys before executing a selected script.")
+
     run_now = st.sidebar.button("Run selected")
     stop_now = st.sidebar.button("Stop selected")
 
@@ -228,16 +257,35 @@ def main() -> None:
     else:
         st.sidebar.info("Not running (subprocess)")
 
-    # Start subprocess only when the user clicks the button
+    # Start subprocess or run in-process when the user clicks the button
     if run_now and not running:
-        st.write(f"### Starting (subprocess): {selected_display}")
-        try:
-            with st.spinner(f"Starting streamlit for {selected_display}..."):
-                proc_entry = start_streamlit_subprocess(selected_path)
-                st.session_state.subprocesses[selected_path] = proc_entry
-        except Exception:
-            st.error("Error while starting subprocess — see traceback below")
-            st.code(traceback.format_exc())
+        if clear_before_run:
+            # remove all keys from session_state except the ones we need to keep
+            keys_to_keep = {"subprocesses"}
+            for k in list(st.session_state.keys()):
+                if k not in keys_to_keep:
+                    del st.session_state[k]
+        if serve_mode.startswith("In-process"):
+            st.write(f"### Running in-process: {selected_display}")
+            try:
+                with st.spinner(f"Running {selected_display} in-process..."):
+                    # Execute the selected script inside this Streamlit session.
+                    # This uses runpy under the hood and will render the script's Streamlit
+                    # UI into the current session. Some scripts may need to be refactored
+                    # to behave correctly when executed inside an existing session.
+                    run_script(selected_path)
+            except Exception:
+                st.error("Error while running script in-process — see traceback below")
+                st.code(traceback.format_exc())
+        else:
+            st.write(f"### Starting (subprocess): {selected_display}")
+            try:
+                with st.spinner(f"Starting streamlit for {selected_display}..."):
+                    proc_entry = start_streamlit_subprocess(selected_path)
+                    st.session_state.subprocesses[selected_path] = proc_entry
+            except Exception:
+                st.error("Error while starting subprocess — see traceback below")
+                st.code(traceback.format_exc())
 
     if stop_now and entry:
         st.write(f"### Stopping: {selected_display}")
