@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     git \
- && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy only requirements first for better caching
 COPY requirements.txt /app/requirements.txt
