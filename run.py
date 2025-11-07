@@ -9,10 +9,7 @@ This script discovers other .py files in the repository (excluding __init__.py a
 and lets you execute any of them inside the same Streamlit session. It uses runpy to run the
 selected file as if it were executed directly (so constructs under `if __name__ == '__main__'` run).
 
-Notes / limitations:
-- Some scripts may assume a fresh Streamlit session or particular working directory. This runner
-  temporarily changes cwd to the script's directory when executing it.
-- If a script mutates global state or sets Streamlit configuration at import-time, results may vary.
+All selected scripts run directly within this Streamlit app - no separate processes needed.
 """
 from __future__ import annotations
 
@@ -21,12 +18,8 @@ import os
 import runpy
 import sys
 import traceback
-import subprocess
-import socket
-import time
-import tempfile
 from pathlib import Path
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict
 
 import streamlit as st
 
@@ -95,55 +88,6 @@ def run_script(path: str) -> None:
         os.chdir(old_cwd)
 
 
-def find_free_port() -> int:
-    """Find a free TCP port on localhost."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", 0))
-        return s.getsockname()[1]
-
-
-def start_streamlit_subprocess(path: str) -> Dict[str, Any]:
-    """Start a separate Streamlit process serving the given script on a free port.
-
-    Returns a dict with keys: process (Popen), port (int), log (str path), started_at (float)
-    """
-    port = find_free_port()
-    # create a logfile path
-    fd, log_path = tempfile.mkstemp(prefix="st_run_", suffix=".log")
-    os.close(fd)
-    log_file = open(log_path, "a", encoding="utf-8", errors="replace")
-
-    cmd = [sys.executable, "-m", "streamlit", "run", path,
-           "--server.port", str(port), "--server.runOnSave", "false"]
-    # On Windows, CREATE_NEW_PROCESS_GROUP helps with termination
-    creationflags = 0
-    if os.name == "nt":
-        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
-
-    proc = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT,
-                            cwd=os.path.dirname(path) or None, creationflags=creationflags)
-    return {"process": proc, "port": port, "log": log_path, "started_at": time.time(), "log_file": log_file}
-
-
-def stop_streamlit_subprocess(entry: Dict[str, Any]) -> None:
-    proc: subprocess.Popen = entry.get("process")
-    log_file = entry.get("log_file")
-    try:
-        if proc and proc.poll() is None:
-            proc.terminate()
-            # wait briefly
-            try:
-                proc.wait(timeout=3)
-            except Exception:
-                proc.kill()
-    finally:
-        try:
-            if log_file and not log_file.closed:
-                log_file.close()
-        except Exception:
-            pass
-
-
 def main() -> None:
     st.set_page_config(page_title="Streamlit Multi-runner", layout="wide")
 
@@ -160,8 +104,8 @@ def main() -> None:
     st.title("Streamlit Multi-runner")
     st.markdown(
         """
-        Very easy: pick the page you want from the sidebar and click **Run selected** — each page
-        will be served in its own Streamlit process and opens in a separate browser tab/window.
+        Select a page from the sidebar and click **Run selected** to run it directly within this app.
+        All output, charts, and interactions will appear below.
 
         This app is designed so contributors can add new pages (scripts) under the project folders.
         See the repository `README.md` for contribution guidelines and how to add display names
@@ -194,7 +138,7 @@ def main() -> None:
         "Select script to run", display_list)
     st.sidebar.write("---")
     st.sidebar.caption(
-        "Scripts are served separately. Click 'Run selected' to start a dedicated Streamlit server for the selected page.")
+        "Click 'Run selected' to execute the selected page directly in this app.")
 
     # map selected display back to file path
     selected_path = display_to_path.get(selected_display)
@@ -206,64 +150,35 @@ def main() -> None:
         st.write(f"Selected path invalid: {selected_path}")
         return
 
-    # Do not show the script filesystem path in the sidebar (user requested)
+    # initialize session_state for inline script execution
+    if "current_script" not in st.session_state:
+        st.session_state.current_script = None
+    if "script_output" not in st.session_state:
+        st.session_state.script_output = None
 
-    run_now = st.sidebar.button("Run selected")
-    stop_now = st.sidebar.button("Stop selected")
+    run_now = st.sidebar.button("Run selected", key="run_button")
+    clear_now = st.sidebar.button("Clear output", key="clear_button")
 
-    # initialize session_state for subprocess management
-    if "subprocesses" not in st.session_state:
-        st.session_state.subprocesses = {}
+    # Handle clearing output
+    if clear_now:
+        st.session_state.current_script = None
+        st.session_state.script_output = None
+        st.rerun()
 
-    def _is_proc_running(entry: Dict[str, Any]) -> bool:
-        p = entry.get("process")
-        return p and p.poll() is None
+    # Run script inline when button is clicked
+    if run_now:
+        st.session_state.current_script = selected_path
+        st.sidebar.success(f"✓ Running: {selected_display}")
 
-    # Subprocess-only behavior: show subprocess status
-    entry = st.session_state.subprocesses.get(selected_path)
-    running = entry is not None and _is_proc_running(entry)
-    if running:
-        st.sidebar.success(f"Serving at http://localhost:{entry['port']}")
-        st.sidebar.text(f"PID: {entry['process'].pid}")
-    else:
-        st.sidebar.info("Not running (subprocess)")
-
-    # Start subprocess only when the user clicks the button
-    if run_now and not running:
-        st.write(f"### Starting (subprocess): {selected_display}")
+    # Execute the selected script if set
+    if st.session_state.current_script:
+        st.write(f"### Running: {selected_display}")
+        st.divider()
         try:
-            with st.spinner(f"Starting streamlit for {selected_display}..."):
-                proc_entry = start_streamlit_subprocess(selected_path)
-                st.session_state.subprocesses[selected_path] = proc_entry
-        except Exception:
-            st.error("Error while starting subprocess — see traceback below")
+            run_script(st.session_state.current_script)
+        except Exception as e:
+            st.error(f"Error running script: {str(e)}")
             st.code(traceback.format_exc())
-
-    if stop_now and entry:
-        st.write(f"### Stopping: {selected_display}")
-        try:
-            stop_streamlit_subprocess(entry)
-        except Exception:
-            st.error("Error while stopping process — see traceback below")
-            st.code(traceback.format_exc())
-        finally:
-            st.session_state.subprocesses.pop(selected_path, None)
-
-    # show logs if available
-    entry = st.session_state.subprocesses.get(selected_path)
-    if entry and entry.get("log"):
-        st.write("---")
-        with st.expander("Show server log"):
-            try:
-                log_path = entry.get("log")
-                # show last 50000 chars
-                text = Path(log_path).read_text(
-                    encoding="utf-8", errors="replace")
-                st.text_area("Log", value=text[-50000:], height=300)
-            except Exception as e:
-                st.write(f"Could not read log: {e}")
-
-    # Removed extra troubleshooting info box per user request.
 
 
 if __name__ == "__main__":

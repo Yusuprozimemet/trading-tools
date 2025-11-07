@@ -3,7 +3,14 @@ import yaml
 import os
 from dotenv import load_dotenv
 import requests
-import alpaca_trade_api as tradeapi
+# ----------------------------------------------------------------------
+# alpaca-py (new SDK)
+from alpaca.trading.client import TradingClient
+from alpaca.trading.requests import MarketOrderRequest, GetOrdersRequest
+from alpaca.trading.enums import OrderSide, OrderType, TimeInForce
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockLatestTradeRequest
+# ----------------------------------------------------------------------
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
@@ -19,8 +26,6 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # ---------- Helper Functions ----------
-
-
 def load_yaml(path):
     with open(path, "r") as f:
         return yaml.safe_load(f)
@@ -65,21 +70,25 @@ def get_color(value):
     except:
         return "gray"
 
-# ---------- Alpaca Client ----------
-
+# ---------- Alpaca Clients ----------
+@st.cache_resource
+def trading_client():
+    """Alpaca-py TradingClient (paper/live)"""
+    return TradingClient(ALPACA_KEY, ALPACA_SECRET, paper=(ALPACA_ENDPOINT == "https://paper-api.alpaca.markets"))
 
 @st.cache_resource
-def alpaca_client():
-    return tradeapi.REST(ALPACA_KEY, ALPACA_SECRET, ALPACA_ENDPOINT, api_version="v2")
+def data_client():
+    """Alpaca-py StockHistoricalDataClient – used only for latest trade price"""
+    return StockHistoricalDataClient(ALPACA_KEY, ALPACA_SECRET)
+
 
 # ---------- Algo Trading Function ----------
-
-
-def run_algo(api, strategy_config):
+def run_algo(trading_cli: TradingClient, data_cli: StockHistoricalDataClient, strategy_config):
     for symbol, rules in strategy_config.get("rules", {}).items():
         try:
-            last_trade = api.get_latest_trade(symbol)
-            latest_price = float(last_trade.price)
+            req = StockLatestTradeRequest(symbol_or_symbols=symbol)
+            trade = data_cli.get_stock_latest_trade(req).trade
+            latest_price = float(trade.price)
         except Exception as e:
             st.warning(f"Cannot fetch price for {symbol}: {e}")
             continue
@@ -87,30 +96,35 @@ def run_algo(api, strategy_config):
         # Buy logic
         if latest_price <= rules["buy_below"]:
             try:
-                order = api.submit_order(
-                    symbol=symbol, qty=rules["qty"], side="buy", type="market", time_in_force="gtc")
-                st.success(
-                    f"🤖 BUY executed: {order.qty} {symbol} at {latest_price}")
-                send_telegram(
-                    f"🤖 BUY executed: {order.qty} {symbol} at {latest_price}")
+                order_data = MarketOrderRequest(
+                    symbol=symbol,
+                    qty=rules["qty"],
+                    side=OrderSide.BUY,
+                    time_in_force=TimeInForce.GTC
+                )
+                order = trading_cli.submit_order(order_data)
+                st.success(f"BUY executed: {order.qty} {symbol} at {latest_price}")
+                send_telegram(f"BUY executed: {order.qty} {symbol} at {latest_price}")
             except Exception as e:
                 st.error(f"Error BUY {symbol}: {e}")
 
         # Sell logic
         elif latest_price >= rules["sell_above"]:
             try:
-                order = api.submit_order(
-                    symbol=symbol, qty=rules["qty"], side="sell", type="market", time_in_force="gtc")
-                st.success(
-                    f"🤖 SELL executed: {order.qty} {symbol} at {latest_price}")
-                send_telegram(
-                    f"🤖 SELL executed: {order.qty} {symbol} at {latest_price}")
+                order_data = MarketOrderRequest(
+                    symbol=symbol,
+                    qty=rules["qty"],
+                    side=OrderSide.SELL,
+                    time_in_force=TimeInForce.GTC
+                )
+                order = trading_cli.submit_order(order_data)
+                st.success(f"SELL executed: {order.qty} {symbol} at {latest_price}")
+                send_telegram(f"SELL executed: {order.qty} {symbol} at {latest_price}")
             except Exception as e:
                 st.error(f"Error SELL {symbol}: {e}")
 
+
 # ---------- Telegram Command Parser ----------
-
-
 def parse_telegram_command(text):
     parts = text.strip().split()
     if not parts:
@@ -120,7 +134,7 @@ def parse_telegram_command(text):
     return cmd, args
 
 
-def execute_command(api, cmd, args):
+def execute_command(trading_cli: TradingClient, cmd, args):
     response = ""
     try:
         if cmd == "/menu":
@@ -137,28 +151,30 @@ def execute_command(api, cmd, args):
         elif cmd == "/buy" and len(args) >= 2:
             symbol = args[0].upper()
             qty = int(args[1])
-            order = api.submit_order(
-                symbol=symbol, qty=qty, side="buy", type="market", time_in_force="gtc")
-            response = f"🤖 BUY executed: {qty} {symbol}"
+            order_data = MarketOrderRequest(
+                symbol=symbol, qty=qty, side=OrderSide.BUY, time_in_force=TimeInForce.GTC)
+            order = trading_cli.submit_order(order_data)
+            response = f"BUY executed: {qty} {symbol}"
         elif cmd == "/sell" and len(args) >= 2:
             symbol = args[0].upper()
             qty = int(args[1])
-            order = api.submit_order(
-                symbol=symbol, qty=qty, side="sell", type="market", time_in_force="gtc")
-            response = f"🤖 SELL executed: {qty} {symbol}"
+            order_data = MarketOrderRequest(
+                symbol=symbol, qty=qty, side=OrderSide.SELL, time_in_force=TimeInForce.GTC)
+            order = trading_cli.submit_order(order_data)
+            response = f"SELL executed: {qty} {symbol}"
         elif cmd == "/cancel" and len(args) >= 1:
             order_id = args[0]
-            api.cancel_order(order_id)
-            response = f"❌ Canceled order {order_id}"
+            trading_cli.cancel_order(order_id)
+            response = f"Canceled order {order_id}"
         elif cmd == "/check_positions":
-            positions = api.list_positions()
+            positions = trading_cli.get_all_positions()
             if positions:
                 response = "\n".join(
                     [f"{p.symbol} | Qty: {p.qty} | Side: {p.side}" for p in positions])
             else:
                 response = "No open positions."
         elif cmd == "/check_orders":
-            orders = api.list_orders(status="all", limit=20)
+            orders = trading_cli.get_orders(GetOrdersRequest(status="all", limit=20))
             if orders:
                 response = "\n".join(
                     [f"{o.symbol} | Side: {o.side} | Qty: {o.qty} | Status: {o.status}" for o in orders])
@@ -166,20 +182,20 @@ def execute_command(api, cmd, args):
                 response = "No recent orders."
         elif cmd == "/start_algo":
             st.session_state.algo_running = True
-            response = "🤖 Algo Trading Started"
+            response = "Algo Trading Started"
         elif cmd == "/stop_algo":
             st.session_state.algo_running = False
-            response = "⏹ Algo Trading Stopped"
+            response = "Algo Trading Stopped"
         else:
-            response = "⚠️ Unknown command. Send /menu to see available commands."
+            response = "Unknown command. Send /menu to see available commands."
     except Exception as e:
-        response = f"❌ Error executing {cmd}: {e}"
+        response = f"Error executing {cmd}: {e}"
     return response
 
 
-def check_telegram_commands(api, last_update_id=None):
+def check_telegram_commands(trading_cli: TradingClient, last_update_id=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
-    params = {"offset": last_update_id+1} if last_update_id else {}
+    params = {"offset": last_update_id + 1} if last_update_id else {}
     try:
         resp = requests.get(url, params=params, timeout=5).json()
     except:
@@ -191,31 +207,30 @@ def check_telegram_commands(api, last_update_id=None):
         update_id = update.get("update_id")
         if text:
             cmd, args = parse_telegram_command(text)
-            response = execute_command(api, cmd, args)
+            response = execute_command(trading_cli, cmd, args)
             send_telegram(response)
         last_update_id = update_id
     return last_update_id
 
+
 # ---------- Telegram Polling in Background ----------
-
-
-def telegram_polling_loop(api, interval=5):
+def telegram_polling_loop(trading_cli: TradingClient, interval=5):
     if "telegram_last_update" not in st.session_state:
         st.session_state.telegram_last_update = None
     while True:
         st.session_state.telegram_last_update = check_telegram_commands(
-            api, st.session_state.telegram_last_update)
+            trading_cli, st.session_state.telegram_last_update)
         time.sleep(interval)
 
+
 # ---------- Streamlit App ----------
-
-
 def app():
     st.set_page_config(page_title="Trading Dashboard", layout="wide")
-    st.title("📊 Algo Trading Dashboard")
+    st.title("Algo Trading Dashboard")
     st.markdown("Real-time trading dashboard with Alpaca & Strategy integration")
 
-    api = alpaca_client()
+    trading_cli = trading_client()
+    data_cli = data_client()
     config = load_config()
 
     # Strategy Selector
@@ -232,19 +247,18 @@ def app():
     # Start Telegram background polling once
     if "telegram_thread_started" not in st.session_state:
         thread = threading.Thread(
-            target=telegram_polling_loop, args=(api,), daemon=True)
+            target=telegram_polling_loop, args=(trading_cli,), daemon=True)
         thread.start()
         st.session_state.telegram_thread_started = True
 
     # ---------- Account Overview ----------
     st.markdown("---")
-    st.header("💼 Account Overview")
+    st.header("Account Overview")
     try:
-        account = api.get_account()
+        account = trading_cli.get_account()
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
-            st.metric("Portfolio Value", format_currency(
-                account.portfolio_value))
+            st.metric("Portfolio Value", format_currency(account.portfolio_value))
         with col2:
             st.metric("Cash", format_currency(account.cash))
         with col3:
@@ -257,16 +271,16 @@ def app():
             st.metric("Today's P/L %", format_percentage(pl_pct),
                       delta=format_percentage(pl_pct))
         with col5:
-            status_color = "🟢" if account.status == "ACTIVE" else "🔴"
+            status_color = "ACTIVE" if account.status == "ACTIVE" else "INACTIVE"
             st.metric("Status", f"{status_color} {account.status}")
     except Exception as e:
-        st.error(f"❌ Error fetching account info: {e}")
+        st.error(f"Error fetching account info: {e}")
 
     # ---------- Positions ----------
     st.markdown("---")
-    st.header("💰 Current Positions")
+    st.header("Current Positions")
     try:
-        positions = api.list_positions()
+        positions = trading_cli.get_all_positions()
         if positions:
             df_positions = pd.DataFrame([{
                 "Symbol": p.symbol,
@@ -278,8 +292,7 @@ def app():
                 "Unrealized P/L": format_currency(float(p.unrealized_pl)),
                 "P/L %": format_percentage(float(p.unrealized_plpc) * 100)
             } for p in positions])
-            st.dataframe(df_positions, use_container_width=True,
-                         hide_index=True)
+            st.dataframe(df_positions, use_container_width=True, hide_index=True)
 
             fig = go.Figure()
             fig.add_trace(go.Bar(
@@ -293,15 +306,15 @@ def app():
                               yaxis_title="P/L ($)", showlegend=False, height=400)
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("📭 No open positions.")
+            st.info("No open positions.")
     except Exception as e:
-        st.error(f"❌ Error fetching positions: {e}")
+        st.error(f"Error fetching positions: {e}")
 
     # ---------- Orders ----------
     st.markdown("---")
-    st.header("📝 Orders")
+    st.header("Orders")
     try:
-        orders = api.list_orders(status="all", limit=20)
+        orders = trading_cli.get_orders(GetOrdersRequest(status="all", limit=20))
         if orders:
             df_orders = pd.DataFrame([{
                 "Symbol": o.symbol,
@@ -315,43 +328,48 @@ def app():
             } for o in orders])
             st.dataframe(df_orders, use_container_width=True, hide_index=True)
         else:
-            st.info("📭 No recent orders.")
+            st.info("No recent orders.")
     except Exception as e:
-        st.error(f"❌ Error fetching orders: {e}")
+        st.error(f"Error fetching orders: {e}")
 
     # ---------- Manual Trade ----------
     st.markdown("---")
-    st.header("🛒 Manual Trade")
+    st.header("Manual Trade")
     symbol = st.text_input("Symbol", "AAPL")
     qty = st.number_input("Quantity", min_value=1, value=1)
     side = st.selectbox("Side", ["buy", "sell"])
-    if st.button("🚀 Submit Order"):
+    if st.button("Submit Order"):
         try:
-            order = api.submit_order(
-                symbol=symbol, qty=qty, side=side, type="market", time_in_force="gtc")
+            order_data = MarketOrderRequest(
+                symbol=symbol,
+                qty=qty,
+                side=OrderSide.BUY if side == "buy" else OrderSide.SELL,
+                time_in_force=TimeInForce.GTC
+            )
+            order = trading_cli.submit_order(order_data)
             st.success(f"Order sent: {side.upper()} {qty} {symbol}")
-            send_telegram(f"📢 ORDER PLACED: {side.upper()} {qty} {symbol}")
+            send_telegram(f"ORDER PLACED: {side.upper()} {qty} {symbol}")
         except Exception as e:
             st.error(str(e))
 
     # ---------- Cancel Orders ----------
     st.markdown("---")
-    st.header("❌ Cancel Orders")
+    st.header("Cancel Orders")
     try:
-        cancelable_orders = [o for o in orders if o.status in [
-            "accepted", "pending", "new"]]
+        cancelable_orders = [o for o in orders if o.status in ["new", "accepted", "pending"]]
         if cancelable_orders:
-            cancel_dict = {
-                o.id: f"{o.symbol} ({o.side} {o.qty})" for o in cancelable_orders}
-            cancel_selection = st.multiselect("Select orders to cancel", options=list(
-                cancel_dict.keys()), format_func=lambda x: cancel_dict[x])
+            cancel_dict = {o.id: f"{o.symbol} ({o.side} {o.qty})" for o in cancelable_orders}
+            cancel_selection = st.multiselect(
+                "Select orders to cancel",
+                options=list(cancel_dict.keys()),
+                format_func=lambda x: cancel_dict[x]
+            )
             if st.button("Cancel Selected Orders"):
                 for order_id in cancel_selection:
                     try:
-                        api.cancel_order(order_id)
+                        trading_cli.cancel_order(order_id)
                         st.success(f"Canceled order {cancel_dict[order_id]}")
-                        send_telegram(
-                            f"❌ CANCELED ORDER: {cancel_dict[order_id]}")
+                        send_telegram(f"CANCELED ORDER: {cancel_dict[order_id]}")
                     except Exception as e:
                         st.error(f"Error canceling {order_id}: {str(e)}")
         else:
@@ -361,25 +379,25 @@ def app():
 
     # ---------- Algo Trading ----------
     st.markdown("---")
-    st.header("🤖 Algo Trading Control")
+    st.header("Algo Trading Control")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("▶️ Run Algo Trading"):
+        if st.button("Run Algo Trading"):
             st.session_state.algo_running = True
             st.success("Algo Trading Started")
-            send_telegram("🤖 Algo Trading Started")
+            send_telegram("Algo Trading Started")
     with col2:
-        if st.button("⏹ Stop Algo Trading"):
+        if st.button("Stop Algo Trading"):
             st.session_state.algo_running = False
             st.warning("Algo Trading Stopped")
-            send_telegram("⏹ Algo Trading Stopped")
+            send_telegram("Algo Trading Stopped")
 
     if st.session_state.algo_running:
-        st.info("🤖 Running Algo Trading...")
-        run_algo(api, strategy_config)
+        st.info("Running Algo Trading...")
+        run_algo(trading_cli, data_cli, strategy_config)
 
     st.markdown("---")
-    st.success("✅ Paper trading environment active using Alpaca")
+    st.success("Paper trading environment active using Alpaca")
 
 
 if __name__ == "__main__":
