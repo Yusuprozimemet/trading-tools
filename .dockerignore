@@ -1,0 +1,17 @@
+__pycache__
+.git
+.gitignore
+.venv
+env
+venv
+*.pyc
+*.pyo
+*.pyd
+env/
+build/
+dist/
+*.egg-info
+render.yaml
+Procfile
+.streamlit/
+requirements-local.txt

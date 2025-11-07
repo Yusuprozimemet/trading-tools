@@ -1,11 +1,10 @@
-﻿services:
+services:
   - type: web
-    name: trading-tools
-    env: python
-    runtime: python3
-    plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run run.py --server.port $PORT --server.address 0.0.0.0 --server.enableCORS false
-    envVars:
-      - key: PORT
-        value: "10000"
+    name: trading-tools-app
+    runtime: docker
+    repo: https://github.com/Yusuprozimemet/trading-tools.git
+    branch: main
+    dockerfilePath: ./Dockerfile
+    region: oregon # or singapore, ohio, frankfurt
+    plan: free # or starter, standard, pro
+    healthCheckPath: /
