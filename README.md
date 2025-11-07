@@ -9,6 +9,8 @@
 </p>
 
 > ⚠️ Note: A public demo is available on Render (link above). Please do not run heavy optimization jobs (GA/optimizers) on the live demo — these can consume large amounts of CPU and memory and may cause the app to be suspended on the free Render trial.
+>
+> ⚠️ Important: This app is currently configured for paper trading and testing only. It is not ready for live, real-money trading. Do not connect live trading credentials or execute real orders on the public demo or without thorough review and safety checks.
 
 Comprehensive trading analysis platform with multiple strategies, real-time alerts, portfolio tracking, and interactive visualizations built with Streamlit.
 
@@ -210,6 +212,13 @@ trading-tools/
 </p>
 
 *Sample financial report output showing aggregated metrics and visualizations.*
+
+### Mobile / Telegram Control
+<p align="center">
+    <img src="image/telegram.jpg" alt="Telegram control - buy/sell and start/stop algo" width="300" />
+</p>
+
+*Control the app remotely via Telegram: send buy/sell commands for single stocks and start/stop algorithmic trading sessions from your phone.*
 
 ## Contributing
 
