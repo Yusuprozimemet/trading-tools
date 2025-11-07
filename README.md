@@ -1,5 +1,15 @@
 # Trading Tools
 
+<p align="center">
+    <img src="image/home.png" alt="Trading Tools Home" width="720" />
+</p>
+
+<p align="center">
+    <a href="https://trading-tools-bd3c.onrender.com" target="_blank">🔗 Live demo: trading-tools-bd3c.onrender.com</a>
+</p>
+
+> ⚠️ Note: A public demo is available on Render (link above). Please do not run heavy optimization jobs (GA/optimizers) on the live demo — these can consume large amounts of CPU and memory and may cause the app to be suspended on the free Render trial.
+
 Comprehensive trading analysis platform with multiple strategies, real-time alerts, portfolio tracking, and interactive visualizations built with Streamlit.
 
 ## Features
@@ -185,6 +195,22 @@ trading-tools/
 2. Load sample data or configure your holdings
 3. View performance metrics and allocation charts
 
+## Screenshots
+
+### Terminal Trading (CLI)
+<p align="center">
+    <img src="image/buy.png" alt="Terminal - buy" width="360" style="margin-right:10px" />
+    <img src="image/bought.png" alt="Terminal - bought" width="360" />
+</p>
+*Terminal trading quick actions: place an order (left) and confirmation state (right).*
+
+### Financial Report
+<p align="center">
+    <img src="image/report.png" alt="Financial Report" width="720" />
+</p>
+
+*Sample financial report output showing aggregated metrics and visualizations.*
+
 ## Contributing
 
 We welcome contributions! Here's how to add new features:
@@ -248,6 +274,10 @@ docker run -p 8501:8501 trading-tools
 - The project includes `Procfile` and `render.yaml` for easy deployment
 - Set environment variables in your hosting platform
 - Push to GitHub and connect to your deployment service
+
+**Public demo:** https://trading-tools-bd3c.onrender.com
+
+> ⚠️ Reminder: the public demo is hosted on Render's free tier. Avoid running heavy optimization tasks (genetic algorithm optimizers, long Monte Carlo runs, etc.) on the demo as they may consume large CPU/memory and cause the instance to be suspended.
 
 ## Troubleshooting
 
