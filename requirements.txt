@@ -18,3 +18,5 @@ python-telegram-bot
 tqdm
 websockets
 alpaca-py   # <-- modern replacement
+tabulate
+colorama
