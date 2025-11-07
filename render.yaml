@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: trading-tools
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "streamlit run run.py --server.port $PORT --server.address 0.0.0.0 --server.enableCORS false"
+    env:
+      - key: PORT
+        value: "10000"
